@@ -44,20 +44,21 @@ class ModDodo:
         if steamcmd_delete_cache:
             self.delete_steamcmd_cache()
 
+        if not self.download_mods(modids):
+            print_error("Could not download mods")
+            sys.exit(1)
+
         for modid in modids:
-            if self.download_mod(modid):
-                if self.extract_mod(modid):
-                    if self.create_mod_file(modid):
-                        if self.move_mod(modid):
-                            print("Mod " + str(modid) + " successfully installed")
-                        else:
-                            print_error("Could not move mod " + str(modid))
+            if self.extract_mod(modid):
+                if self.create_mod_file(modid):
+                    if self.move_mod(modid):
+                        print("Mod " + str(modid) + " successfully installed")
                     else:
-                        print_error("Could not create .mod file for mod " + str(modid))
+                        print_error("Could not move mod " + str(modid))
                 else:
-                    print_error("Could not extract mod " + str(modid))
+                    print_error("Could not create .mod file for mod " + str(modid))
             else:
-                print_error("Could not download mod " + str(modid))
+                print_error("Could not extract mod " + str(modid))
 
     def check_server_directory(self):
         if not os.path.isdir(os.path.join(self.server_directory, SERVER_CHECK_PATH)):
@@ -106,10 +107,12 @@ class ModDodo:
                     modids.append(directory)
             break
 
-    def download_mod(self, modid):
-        print("- Downloading mod " + str(modid) + "...")
-        exit_code = subprocess.call([self.steamcmd_directory, "+login anonymous", "+workshop_download_item", "346110", modid, "+quit"])
-        return exit_code == 0
+    def download_mods(self, modids):
+        args = [self.steamcmd_directory, "+login anonymous"]
+        for modid in modids:
+            args.extend(["+workshop_download_item", "346110", modid])
+        args.append("+quit")
+        return subprocess.call(args) == 0
 
     def extract_mod(self, modid):
         """
@@ -304,7 +307,7 @@ def print_error(msg):
 
 def main():
     parser = argparse.ArgumentParser(description="Installs ARK Linux server mods via SteamCMD")
-    parser.add_argument("--serverdir", default=".", dest="serverdir", help="home directory of the server (containing the `/ShooterGame` folder)")
+    parser.add_argument("--serverdir", default=".", dest="serverdir", help="home directory of the server (containing the /ShooterGame folder)")
     parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
     parser.add_argument("--steamcmd", default="/home/steam/Steam", dest="steamcmd", help="path to SteamCMD")
     parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="updatemods", help="update existing mods")
