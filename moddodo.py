@@ -375,26 +375,30 @@ class ArkModDownloader():
         return True
 
 
+def print_error(msg):
+    print("\n[ERROR] " + msg + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Installs ARK Linux server mods via SteamCMD")
     parser.add_argument("--serverdir", default=None, dest="serverdir", help="home directory of the server (containing the `/ShooterGame` folder)")
     parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
-    parser.add_argument("--steamcmd", default=None, dest="steamcmd", help="path to SteamCMD")
-    parser.add_argument("--update", default=None, action="store_true", dest="mod_update", help="just update existing mods")
-    parser.add_argument("--delete", default=None, action="store_true", dest="delete", help="Delete SteamCMD cache, if used in multi-server environment")
+    parser.add_argument("--steamcmd", default="/home/steam/Steam", dest="steamcmd", help="path to SteamCMD")
+    parser.add_argument("--update", default=None, action="store_true", dest="mod_update", help="update existing mods")
+    parser.add_argument("--deletecache", default=None, action="store_true", dest="deletecache", help="Delete SteamCMD cache, if used in multi-server environment")
 
     args = parser.parse_args()
 
     if not args.modids and not args.mod_update:
-        print("[x] No Mod ID Provided and Update Not Selected.  Aborting")
-        print("[?] Please provide a Mod ID to download or use --update to update your existing mods")
-        sys.exit(0)
+        print_error("Neither mod ids provided nor update requested. Don't know what to dodo.")
+        print(parser.format_help())
+        sys.exit(1)
 
     ArkModDownloader(args.steamcmd,
                      args.modids,
                      args.serverdir,
                      args.mod_update,
-                     args.delete)
+                     args.deletecache)
 
 
 if __name__ == '__main__':
