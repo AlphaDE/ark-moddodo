@@ -11,10 +11,11 @@ This tool is intended be run with python3.
 
 ### Commandline Arguments
 
-- `--workingdir` - (optional) - home directory of the server (containing the `/ShooterGame` folder)
-- `--modids` - space-separated list of steam IDs of the mod you wish to 
-- `--steamcmd` - (optional) directory of the SteamCMD install you wish to use, if not under `~/steam/Steam`
+- `--serverdir PATH` - (optional) - home directory of the server (containing the `/ShooterGame` folder)
+- `--modids ID [ID...]` - space-separated list of steam IDs of the mod you wish to 
+- `--steamcmd PATH` - (optional) directory of the SteamCMD install you wish to use, if not under `~/steam/Steam`
 - `--update` - (optional) - update all mods currently installed on the server
+- `--delete` - (optional) - deletes previously downloaded mods for multi-server environments
 
 ### Example
 

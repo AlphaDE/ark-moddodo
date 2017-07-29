@@ -11,7 +11,7 @@ import zipfile
 
 class ArkModDownloader():
 
-    def __init__(self, steamcmd, modids, working_dir, mod_update, modname, preserve=False):
+    def __init__(self, steamcmd, modids, working_dir, mod_update, deleteSteamCMDCache):
 
         # I not working directory provided, check if CWD has an ARK server.
         self.working_dir = working_dir
@@ -24,12 +24,11 @@ class ArkModDownloader():
             print("SteamCMD Not Found And We Were Unable To Download It")
             sys.exit(0)
 
-        self.modname = modname
         self.installed_mods = []  # List to hold installed mods
         self.map_names = []  # Stores map names from mod.info
         self.meta_data = OrderedDict([])  # Stores key value from modmeta.info
         self.temp_mod_path = os.path.join(os.path.dirname(self.steamcmd), r"steamapps\workshop\content\346110")
-        self.preserve = preserve
+        self.preserve = !deleteSteamCMDCache
 
         self.prep_steamcmd()
 
@@ -44,12 +43,7 @@ class ArkModDownloader():
                     if self.move_mod(mod):
                         print("[+] Mod {} Installation Finished".format(str(mod)))
                 else:
-                    print("[+] There was as problem downloading mod {}.  See above errors".format(str(mod)))
-
-    def create_mod_name_txt(self, mod_folder, modid):
-        print(os.path.join(mod_folder, self.map_names[0] + " - " + modid + ".txt"))
-        with open(os.path.join(mod_folder, self.map_names[0] + ".txt"), "w+") as f:
-            f.write(modid)
+                    print("[+] There was as problem downloading mod {}.  See above errors".format(str(mod)))    
 
     def working_dir_check(self):
         print("[!] No working directory provided.  Checking Current Directory")
@@ -239,10 +233,6 @@ class ArkModDownloader():
         print("[+] Moving Mod Files To: " + output_dir)
         shutil.copytree(source_dir, output_dir)
 
-        if self.modname:
-            print("Creating Mod Name File")
-            self.create_mod_name_txt(ark_mod_folder, modid)
-
         return True
 
     def create_mod_file(self, modid):
@@ -391,13 +381,12 @@ class ArkModDownloader():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="A utility to download ARK Mods via SteamCMD")
-    parser.add_argument("--workingdir", default=None, dest="workingdir", help="Game server home directory.  Current Directory is used if this is not provided")
-    parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="ID of Mod To Download")
-    parser.add_argument("--steamcmd", default=None, dest="steamcmd", help="Path to SteamCMD")
-    parser.add_argument("--update", default=None, action="store_true", dest="mod_update", help="Update Existing Mods.  ")
-    parser.add_argument("--preserve", default=None, action="store_true", dest="preserve", help="Don't Delete StreamCMD Content Between Runs")
-    parser.add_argument("--namefile", default=None, action="store_true", dest="modname", help="Create a .name File With Mods Text Name")
+    parser = argparse.ArgumentParser(description="Installs ARK Linux server mods via SteamCMD")
+    parser.add_argument("--serverdir", default=None, dest="serverdir", help="home directory of the server (containing the `/ShooterGame` folder)")
+    parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
+    parser.add_argument("--steamcmd", default=None, dest="steamcmd", help="path to SteamCMD")
+    parser.add_argument("--update", default=None, action="store_true", dest="mod_update", help="just update existing mods")
+    parser.add_argument("--delete", default=None, action="store_true", dest="delete", help="Delete SteamCMD cache, if used in multi-server environment")
 
     args = parser.parse_args()
 
@@ -408,10 +397,9 @@ def main():
 
     ArkModDownloader(args.steamcmd,
                      args.modids,
-                     args.workingdir,
+                     args.serverdir,
                      args.mod_update,
-                     args.modname,
-                     args.preserve)
+                     args.delete)
 
 
 
