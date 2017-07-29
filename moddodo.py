@@ -39,7 +39,7 @@ class ModDodo:
         self.map_names = []  # stores map names from mod.info
         self.meta_data = OrderedDict([])  # stores key value from modmeta.info
 
-        self.download_mod_directory = os.path.join(os.path.dirname(self.steamcmd_directory), STEAMCMD_MODS_PATH)
+        self.download_mod_directory = os.path.join(self.steamcmd_directory, STEAMCMD_MODS_PATH)
 
         if steamcmd_delete_cache:
             self.delete_steamcmd_cache()
@@ -138,7 +138,10 @@ class ModDodo:
                         if os.path.isfile(uncompressed):
                             os.remove(uncompressed)
 
-        except (arkit.UnpackException, arkit.SignatureUnpackException, arkit.CorruptUnpackException):
+            return True
+
+        except (arkit.UnpackException, arkit.SignatureUnpackException, arkit.CorruptUnpackException) as e:
+            print_error(str(e))
             return False
 
     def create_mod_file(self, modid):
@@ -306,7 +309,7 @@ class ModDodo:
 
 
 def print_error(msg):
-    print("\n[ERROR] " + msg + "\n")
+    print("\n[ERROR] " + msg)
 
 
 def main():
