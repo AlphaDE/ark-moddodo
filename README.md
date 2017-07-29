@@ -1,26 +1,22 @@
-**ARK Mod Downloader**
+# moddodo for Ark: Survival Evolved
 ------------------------------
-As many know you cannot simply download ARK mods via SteamCMD.  The individual files come archived as .z files which will not work with a server. 
+Improved Linux fork of [barrycarey/Ark_Mod_Downloader](https://github.com/barrycarey/Ark_Mod_Downloader) 
 
-This tool works around this issue by downloading the mod and extracting the .z files. 
+You cannot simply download ARK mods for linux servers via SteamCMD. The individual files come archived as .z files which will not work directly with a server.
+This tool allows direct downloading of mods and extracting their .z files, so that you do not need to maintain anything else on the server.
 
-**Usage**
+## Usage
 
-You can either run this tool via the .exe provided in the dist folder or directly via the Ark_Mod_Downloader Python script.
+This tool is intended be run with python3.
 
-***Commandline Args***
+### Commandline Arguments
 
-**--workingdir** - (Optional) - This is the home directory of your ARK server
+- `--workingdir` - (optional) - home directory of the server (containing the `/ShooterGame` folder)
+- `--modids` - space-separated list of steam IDs of the mod you wish to 
+- `--steamcmd` - (optional) directory of the SteamCMD install you wish to use, if not under ~/steam/Steam
+- `--update` - (optional) - update all mods currently installed on the server
 
-**--modids** - The IDs of the mod you wish to download.  Space separated list of Mod IDs to download
+### Example
 
-**--steamcmd** - (Optional) - The directory to the SteamCMD exe you wish to use.  If not provided the tool will download SteamCMD to the CWD
-
-**--update** - (Optional) - This will update all current mods installed on the server
-
-**--namefile** - (Optional) - This will create a "Modname.name" file in the mod folder. 
-
-The only required argument is the --modid if you run this script from the root of your Game Server.
-
-**Credits**
+## Credits
 <a href="https://github.com/project-umbrella/arkit.py" target="_blank">arkit.py</a> - Used to extract the .z files
