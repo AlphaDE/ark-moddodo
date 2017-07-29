@@ -18,6 +18,7 @@ STEAMCMD_SCRIPT = "steamcmd.sh"
 WINDOWS_NOEDITOR = "WindowsNoEditor"
 WINDOWS_NOEDITOR_MODFILE = WINDOWS_NOEDITOR + "/.mod"
 WINDOWS_NOEDITOR_MOD_INFO = WINDOWS_NOEDITOR + "/mod.info"
+WINDOWS_NOEDITOR_MODMETA_INFO = WINDOWS_NOEDITOR + "/modmeta.info"
 
 
 class ModDodo:
@@ -246,12 +247,9 @@ class ModDodo:
         :return: Dict
         """
 
-        print("[+] Collecting Mod Meta Data From modmeta.info")
-        print("[+] Located The Following Meta Data:")
-
-        mod_meta = os.path.join(self.download_mod_directory, modid, r"WindowsNoEditor\modmeta.info")
+        mod_meta = os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR_MODMETA_INFO)
         if not os.path.isfile(mod_meta):
-            print("[x] Failed To Locate modmeta.info. Cannot continue without it.  Aborting")
+            print_error("Could not find " + WINDOWS_NOEDITOR_MODMETA_INFO + " in " + self.download_mod_directory + "/" + modid)
             return False
 
         with open(mod_meta, "rb") as f:
