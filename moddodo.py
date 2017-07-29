@@ -10,23 +10,22 @@ import urllib.request
 import zipfile
 
 SERVER_CHECK_PATH = "ShooterGame/Content"
+STEAMCMD_SCRIPT = "steamcmd.sh"
+
 
 class ModDodo:
-    def __init__(self, steamcmd, modids, server_directory, mod_update, deleteSteamCMDCache):
-        self.steamcmd = steamcmd  # Path to SteamCMD exe
+    def __init__(self, steamcmd_directory, modids, server_directory, mod_update, steamcmd_delete_cache):
+        self.steamcmd_directory = steamcmd_directory  # Path to SteamCMD exe
         self.server_directory = server_directory
+        self.preserve = not steamcmd_delete_cache
 
-        self.check_server_directory(server_directory)
-
-        if not self.steamcmd_check():
-            print("SteamCMD Not Found And We Were Unable To Download It")
-            sys.exit(0)
+        self.check_server_directory()
+        self.check_steamcmd_directory()
 
         self.installed_mods = []  # List to hold installed mods
         self.map_names = []  # Stores map names from mod.info
         self.meta_data = OrderedDict([])  # Stores key value from modmeta.info
-        self.temp_mod_path = os.path.join(os.path.dirname(self.steamcmd), r"steamapps\workshop\content\346110")
-        self.preserve = not deleteSteamCMDCache
+        self.temp_mod_path = os.path.join(os.path.dirname(self.steamcmd_directory), r"steamapps\workshop\content\346110")
 
         self.prep_steamcmd()
 
@@ -50,62 +49,13 @@ class ModDodo:
         else:
             print("Installing mods for server: " + self.server_directory)
 
-
-    def steamcmd_check(self):
-        """
-        If SteamCMD path is provided verify that exe exists.
-        If no path provided check TCAdmin path working dir.  If not located try to download SteamCMD.
-        :return: Bool
-        """
-
-        # Check provided directory
-        if self.steamcmd:
-            print("[+] Checking Provided Path For SteamCMD")
-            if os.path.isfile(os.path.join(self.steamcmd, "steamcmd.exe")):
-                self.steamcmd = os.path.join(self.steamcmd, "steamcmd.exe")
-                print("[+] SteamCMD Found At Provided Path")
-                return True
-
-        # Check TCAdmin Directory
-        print("[+] SteamCMD Location Not Provided. Checking Common Locations")
-        if os.path.isfile(r"C:\Program Files\TCAdmin2\Monitor\Tools\SteamCmd\steamcmd.exe"):
-            print("[+] SteamCMD Located In TCAdmin Directory")
-            self.steamcmd = r"C:\Program Files\TCAdmin2\Monitor\Tools\SteamCmd\steamcmd.exe"
-            return True
-
-        # Check working directory
-        if os.path.isfile(os.path.join(self.server_directory, "SteamCMD\steamcmd.exe")):
-            print("[+] Located SteamCMD")
-            self.steamcmd = os.path.join(self.server_directory, "SteamCMD\steamcmd.exe")
-            return True
-
-        print("[+} SteamCMD Not Found In Common Locations. Attempting To Download")
-
-        try:
-            with urllib.request.urlopen("https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip") as response:
-                if not os.path.isdir(os.path.join(self.server_directory, "SteamCMD")):
-                    os.mkdir(os.path.join(self.server_directory, "SteamCMD"))
-
-                steam_cmd_zip = os.path.join(self.server_directory, "steamcmd.zip")
-                with open(steam_cmd_zip, "w+b") as output:
-                    output.write(response.read())
-
-                zip_file = zipfile.ZipFile(steam_cmd_zip)
-                try:
-                    zip_file.extractall(os.path.join(self.server_directory, "SteamCMD"))
-                except zipfile.BadZipfile as e:
-                    print("[x] Failed To Extract steamcmd.zip. Aborting")
-                    print("[x] Error: " + e)
-                    sys.exit()
-
-        except urllib.request.HTTPError as e:
-            print("[x] Failed To Download SteamCMD. Aborting")
-            print("[x] ERROR: " + e)
-            return False
-
-        self.steamcmd = os.path.join(self.server_directory, r"SteamCMD\steamcmd.exe")
-
-        return True
+    def check_steamcmd_directory(self):
+        if not os.path.isfile(os.path.join(self.steamcmd_directory, STEAMCMD_SCRIPT)):
+            print_error("Given SteamCMD directory " + self.steamcmd_directory + " does not contain '" + STEAMCMD_SCRIPT + "'\n"
+                        + "\tSee https://developer.valvesoftware.com/wiki/SteamCMD#Linux on how to install")
+            sys.exit(1)
+        else:
+            print("Using SteamCMD: " + self.steamcmd_directory)
 
     def prep_steamcmd(self):
         """
@@ -118,7 +68,7 @@ class ModDodo:
         if self.preserve:
             return
 
-        steamapps = os.path.join(os.path.dirname(self.steamcmd), "steamapps")
+        steamapps = os.path.join(os.path.dirname(self.steamcmd_directory), "steamapps")
 
         if os.path.isdir(steamapps):
             print("[+] Removing Steamapps Folder")
@@ -162,7 +112,7 @@ class ModDodo:
         """
         print("[+] Starting Download of Mod " + str(modid))
         args = []
-        args.append(self.steamcmd)
+        args.append(self.steamcmd_directory)
         args.append("+login anonymous")
         args.append("+workshop_download_item")
         args.append("346110")
