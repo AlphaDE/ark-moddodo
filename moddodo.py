@@ -108,11 +108,15 @@ class ModDodo:
             break
 
     def download_mods(self, modids):
-        args = [self.steamcmd_directory, "+login anonymous"]
+        args = [os.path.join(self.steamcmd_directory, STEAMCMD_SCRIPT), "+login anonymous"]
         for modid in modids:
             args.extend(["+workshop_download_item", "346110", modid])
         args.append("+quit")
-        return subprocess.call(args) == 0
+        try:
+            return subprocess.call(args) == 0
+        except Exception as e:
+            print_error("Could not start steamcmd to download mods:\n" + str(e))
+            sys.exit(1)
 
     def extract_mod(self, modid):
         """
