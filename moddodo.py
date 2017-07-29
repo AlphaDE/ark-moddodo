@@ -49,6 +49,9 @@ class ModDodo:
             print_error("Could not download mods")
             sys.exit(1)
 
+        # SteamCMD does not properly break lines
+        print("")
+
         for modid in modids:
             if self.extract_mod(modid):
                 if self.create_mod_file(modid):
@@ -280,9 +283,12 @@ class ModDodo:
                     raw = f.read(value_bytes)
                     value = raw[:-1].decode()
 
-                # TODO This is a potential issue if there is a key but no value
+                if key == "" or value == "":
+                    print_error("Found potentially bad mapping: " + key + " = " + value + "\n"
+                                + "Skipping and trying to continue anyway...")
+
                 if key and value:
-                    print("[!] " + key + ":" + value)
+                    print("   * " + key + " = " + value)
                     self.meta_data[key] = value
 
         return True
