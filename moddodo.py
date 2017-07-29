@@ -9,8 +9,8 @@ import struct
 import urllib.request
 import zipfile
 
-class ArkModDownloader():
 
+class ArkModDownloader():
     def __init__(self, steamcmd, modids, working_dir, mod_update, deleteSteamCMDCache):
 
         # I not working directory provided, check if CWD has an ARK server.
@@ -43,7 +43,7 @@ class ArkModDownloader():
                     if self.move_mod(mod):
                         print("[+] Mod {} Installation Finished".format(str(mod)))
                 else:
-                    print("[+] There was as problem downloading mod {}.  See above errors".format(str(mod)))    
+                    print("[+] There was as problem downloading mod {}.  See above errors".format(str(mod)))
 
     def working_dir_check(self):
         print("[!] No working directory provided.  Checking Current Directory")
@@ -176,7 +176,6 @@ class ArkModDownloader():
 
         return True if self.extract_mod(modid) else False
 
-
     def extract_mod(self, modid):
         """
         Extract the .z files using the arkit lib.
@@ -195,7 +194,7 @@ class ArkModDownloader():
                         dst = os.path.join(curdir, name)
                         uncompressed = os.path.join(curdir, file + ".uncompressed_size")
                         arkit.unpack(src, dst)
-                        #print("[+] Extracted " + file)
+                        # print("[+] Extracted " + file)
                         os.remove(src)
                         if os.path.isfile(uncompressed):
                             os.remove(uncompressed)
@@ -209,7 +208,6 @@ class ArkModDownloader():
                 return True
             else:
                 return False
-
 
     def move_mod(self, modid):
         """
@@ -335,7 +333,6 @@ class ArkModDownloader():
                     key_bytes -= 1
 
                 if not key_flag and key_bytes > 0:
-
                     raw = f.read(key_bytes)
                     key = raw[:-1].decode()
 
@@ -355,7 +352,6 @@ class ArkModDownloader():
                     self.meta_data[key] = value
 
         return True
-
 
     def parse_base_info(self, modid):
 
@@ -379,7 +375,6 @@ class ArkModDownloader():
         return True
 
 
-
 def main():
     parser = argparse.ArgumentParser(description="Installs ARK Linux server mods via SteamCMD")
     parser.add_argument("--serverdir", default=None, dest="serverdir", help="home directory of the server (containing the `/ShooterGame` folder)")
@@ -400,7 +395,6 @@ def main():
                      args.serverdir,
                      args.mod_update,
                      args.delete)
-
 
 
 if __name__ == '__main__':
