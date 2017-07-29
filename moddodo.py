@@ -6,41 +6,58 @@ import shutil
 import subprocess
 from collections import OrderedDict
 import struct
-import urllib.request
-import zipfile
+
+SERVER_MOD_DIRECTORY = "ShooterGame/Content/Mods"
+
+STEAMCMD_STEAMAPPS = "steamapps"
+STEAMCMD_MODS_PATH = STEAMCMD_STEAMAPPS + "/workshop/content/346110"
 
 SERVER_CHECK_PATH = "ShooterGame/Content"
 STEAMCMD_SCRIPT = "steamcmd.sh"
 
+WINDOWS_NOEDITOR = "WindowsNoEditor"
+WINDOWS_NOEDITOR_MODFILE = WINDOWS_NOEDITOR + "/.mod"
+WINDOWS_NOEDITOR_MOD_INFO = WINDOWS_NOEDITOR + "/mod.info"
+
 
 class ModDodo:
     def __init__(self, steamcmd_directory, modids, server_directory, mod_update, steamcmd_delete_cache):
-        self.steamcmd_directory = steamcmd_directory  # Path to SteamCMD exe
+        self.steamcmd_directory = steamcmd_directory
         self.server_directory = server_directory
-        self.preserve = not steamcmd_delete_cache
 
         self.check_server_directory()
         self.check_steamcmd_directory()
 
-        self.installed_mods = []  # List to hold installed mods
-        self.map_names = []  # Stores map names from mod.info
-        self.meta_data = OrderedDict([])  # Stores key value from modmeta.info
-        self.temp_mod_path = os.path.join(os.path.dirname(self.steamcmd_directory), r"steamapps\workshop\content\346110")
-
-        self.prep_steamcmd()
-
+        if not modids:
+            modids = []
         if mod_update:
-            print("[+] Mod Update Is Selected.  Updating Your Existing Mods")
-            self.update_mods()
+            self.append_installed_mods(modids)
 
-        # If any issues happen in download and extract chain this returns false
-        if modids:
-            for mod in modids:
-                if self.download_mod(mod):
-                    if self.move_mod(mod):
-                        print("[+] Mod {} Installation Finished".format(str(mod)))
+        print("Installing mods: " + ', '.join(modids))
+
+        # Mod/.z/UE magic stuff
+        self.map_names = []  # stores map names from mod.info
+        self.meta_data = OrderedDict([])  # stores key value from modmeta.info
+
+        self.download_mod_directory = os.path.join(os.path.dirname(self.steamcmd_directory), STEAMCMD_MODS_PATH)
+
+        if steamcmd_delete_cache:
+            self.delete_steamcmd_cache()
+
+        for modid in modids:
+            if self.download_mod(modid):
+                if self.extract_mod(modid):
+                    if self.create_mod_file(modid):
+                        if self.move_mod(modid):
+                            print("Mod " + str(modid) + " successfully installed")
+                        else:
+                            print_error("Could not move mod " + str(modid))
+                    else:
+                        print_error("Could not create .mod file for mod " + str(modid))
                 else:
-                    print("[+] There was as problem downloading mod {}.  See above errors".format(str(mod)))
+                    print_error("Could not extract mod " + str(modid))
+            else:
+                print_error("Could not download mod " + str(modid))
 
     def check_server_directory(self):
         if not os.path.isdir(os.path.join(self.server_directory, SERVER_CHECK_PATH)):
@@ -57,82 +74,52 @@ class ModDodo:
         else:
             print("Using SteamCMD: " + self.steamcmd_directory)
 
-    def prep_steamcmd(self):
+    def delete_steamcmd_cache(self):
         """
-        Delete steamapp folder to prevent Steam from remembering it has downloaded this mod before
-        This is mainly for game hosts.  Example, hosts using TCAdmin have one SteamCMD folder. If mod was downloaded
-        by another customer SteamCMD will think it already exists and not download again.
-        :return:
+        Deleting the steamapp folder intends to prevent Steam from thinking it has downloaded this mod before.
+        This is useful for hosts using TCAdmin which only have one SteamCMD folder. If a mod was downloaded
+        by another customer, SteamCMD will think it already exists and not download it again. This means the old version
+        will still be used.
         """
-
-        if self.preserve:
-            return
-
-        steamapps = os.path.join(os.path.dirname(self.steamcmd_directory), "steamapps")
+        steamapps = os.path.join(os.path.dirname(self.steamcmd_directory), STEAMCMD_STEAMAPPS)
 
         if os.path.isdir(steamapps):
-            print("[+] Removing Steamapps Folder")
+            print("Trying to remove " + STEAMCMD_STEAMAPPS + " folder...")
             try:
                 shutil.rmtree(steamapps)
+                print("Success")
             except OSError:
-                """
-                If run on a TCAdmin server using TCAdmin's SteamCMD this may prevent mod from downloading if another
-                user has downloaded the same mod.  This is due to SteamCMD's cache.  It will think this mod has is
-                already installed and up to date.
-                """
-                print("[x] Failed To Remove Steamapps Folder. This is normally okay.")
-                print("[x] If this is a TCAdmin Server and using the TCAdmin SteamCMD it may prevent mod from downloading")
+                print_error("Failed to remove " + STEAMCMD_STEAMAPPS + " folder. Usually this does not indicate a problem.\n"
+                            + "If this is a TCAdmin Server and you're using the TCAdmin SteamCMD it may prevent mods from updating.")
 
-    def update_mods(self):
-        self.build_list_of_mods()
-        if self.installed_mods:
-            for mod in self.installed_mods:
-                print("[+] Updating Mod " + mod)
-                if not self.download_mod(mod):
-                    print("[x] Error Updating Mod " + mod)
-        else:
-            print("[+] No Installed Mods Found.  Skipping Update")
+    def append_installed_mods(self, modids):
+        print("Gurr. Reading installed mods...")
 
-    def build_list_of_mods(self):
-        """
-        Build a list of all installed mods by grabbing all directory names from the mod folder
-        :return:
-        """
-        if not os.path.isdir(os.path.join(self.server_directory, "ShooterGame\Content\Mods")):
+        if not os.path.isdir(os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)):
+            print_error("Given server directory " + self.server_directory + " does not contain " + SERVER_MOD_DIRECTORY + ".\n"
+                        + "Cannot find any mods to update.")
             return
-        for curdir, dirs, files in os.walk(os.path.join(self.server_directory, "ShooterGame\Content\Mods")):
-            for d in dirs:
-                self.installed_mods.append(d)
+        for current_dir, directories, files in os.walk(os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)):
+            for directory in directories:
+                # AFAIK these are updated by Ark itself, maybe only with -automanagedmods
+                if directory not in ["111111111", "Ragnarok", "TheCenter"]:
+                    modids.append(directory)
             break
 
     def download_mod(self, modid):
-        """
-        Launch SteamCMD to download ModID
-        :return:
-        """
-        print("[+] Starting Download of Mod " + str(modid))
-        args = []
-        args.append(self.steamcmd_directory)
-        args.append("+login anonymous")
-        args.append("+workshop_download_item")
-        args.append("346110")
-        args.append(modid)
-        args.append("+quit")
-        subprocess.call(args, shell=True)
-
-        return True if self.extract_mod(modid) else False
+        print("- Downloading mod " + str(modid) + "...")
+        exit_code = subprocess.call([self.steamcmd_directory, "+login anonymous", "+workshop_download_item", "346110", modid, "+quit"])
+        return exit_code == 0
 
     def extract_mod(self, modid):
         """
         Extract the .z files using the arkit lib.
-        If any file fails to download this whole script will abort
-        :return: None
+        :returns false, if any file fails to download
         """
-
-        print("[+] Extracting .z Files.")
+        print("- Extracting mod " + str(modid) + "...")
 
         try:
-            for curdir, subdirs, files in os.walk(os.path.join(self.temp_mod_path, modid, "WindowsNoEditor")):
+            for curdir, subdirs, files in os.walk(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)):
                 for file in files:
                     name, ext = os.path.splitext(file)
                     if ext == ".z":
@@ -140,56 +127,23 @@ class ModDodo:
                         dst = os.path.join(curdir, name)
                         uncompressed = os.path.join(curdir, file + ".uncompressed_size")
                         arkit.unpack(src, dst)
-                        # print("[+] Extracted " + file)
                         os.remove(src)
                         if os.path.isfile(uncompressed):
                             os.remove(uncompressed)
 
-        except (arkit.UnpackException, arkit.SignatureUnpackException, arkit.CorruptUnpackException) as e:
-            print("[x] Unpacking .z files failed, aborting mod install")
+        except (arkit.UnpackException, arkit.SignatureUnpackException, arkit.CorruptUnpackException):
             return False
-
-        if self.create_mod_file(modid):
-            if self.move_mod(modid):
-                return True
-            else:
-                return False
-
-    def move_mod(self, modid):
-        """
-        Move mod from SteamCMD download location to the ARK server.
-        It will delete an existing mod with the same ID
-        :return:
-        """
-
-        ark_mod_folder = os.path.join(self.server_directory, "ShooterGame\Content\Mods")
-        output_dir = os.path.join(ark_mod_folder, str(modid))
-        source_dir = os.path.join(self.temp_mod_path, modid, "WindowsNoEditor")
-
-        # TODO Need to handle exceptions here
-        if not os.path.isdir(ark_mod_folder):
-            print("[+] Creating Directory: " + ark_mod_folder)
-            os.mkdir(ark_mod_folder)
-
-        if os.path.isdir(output_dir):
-            shutil.rmtree(output_dir)
-
-        print("[+] Moving Mod Files To: " + output_dir)
-        shutil.copytree(source_dir, output_dir)
-
-        return True
 
     def create_mod_file(self, modid):
         """
         Create the .mod file.
         This code is an adaptation of the code from Ark Server Launcher.  All credit goes to Face Wound on Steam
-        :return:
         """
+        print("- Writing .mod file...")
         if not self.parse_base_info(modid) or not self.parse_meta_data(modid):
             return False
 
-        print("[+] Writing .mod File")
-        with open(os.path.join(self.temp_mod_path, modid, r"WindowsNoEditor\.mod"), "w+b") as f:
+        with open(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR_MODFILE), "w+b") as f:
 
             modid = int(modid)
             f.write(struct.pack('ixxxx', modid))  # Needs 4 pad bits
@@ -223,6 +177,32 @@ class ModDodo:
                 self.write_ue4_string(v, f)
 
         return True
+
+    def move_mod(self, modid):
+        """
+        Move mod from SteamCMD download location to the ARK server.
+        It will delete an existing mod with the same ID
+        """
+
+        print("- Moving mod...")
+
+        ark_mod_directory = os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)
+        target_mod_directory = os.path.join(ark_mod_directory, str(modid))
+        source_mod_directory = os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)
+
+        try:
+            if not os.path.isdir(ark_mod_directory):
+                    os.mkdir(ark_mod_directory)
+
+            if os.path.isdir(target_mod_directory):
+                shutil.rmtree(target_mod_directory)
+
+            shutil.copytree(source_mod_directory, target_mod_directory)
+            return True
+        except Exception as e:
+            print_error("Encountered unexpected exception during move operation from " + source_mod_directory + " to " + target_mod_directory + ":\n"
+                        + str(e))
+            return False
 
     def read_ue4_string(self, file):
         count = struct.unpack('i', file.read(4))[0]
@@ -259,7 +239,7 @@ class ModDodo:
         print("[+] Collecting Mod Meta Data From modmeta.info")
         print("[+] Located The Following Meta Data:")
 
-        mod_meta = os.path.join(self.temp_mod_path, modid, r"WindowsNoEditor\modmeta.info")
+        mod_meta = os.path.join(self.download_mod_directory, modid, r"WindowsNoEditor\modmeta.info")
         if not os.path.isfile(mod_meta):
             print("[x] Failed To Locate modmeta.info. Cannot continue without it.  Aborting")
             return False
@@ -300,13 +280,10 @@ class ModDodo:
         return True
 
     def parse_base_info(self, modid):
-
-        print("[+] Collecting Mod Details From mod.info")
-
-        mod_info = os.path.join(self.temp_mod_path, modid, r"WindowsNoEditor\mod.info")
+        mod_info = os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR_MOD_INFO)
 
         if not os.path.isfile(mod_info):
-            print("[x] Failed to locate mod.info. Cannot Continue.  Aborting")
+            print_error("Could not find " + WINDOWS_NOEDITOR_MOD_INFO + " in " + self.download_mod_directory + "/" + modid)
             return False
 
         with open(mod_info, "rb") as f:
