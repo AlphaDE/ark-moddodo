@@ -9,16 +9,14 @@ import struct
 import urllib.request
 import zipfile
 
+SERVER_CHECK_PATH = "ShooterGame/Content"
 
-class ArkModDownloader():
-    def __init__(self, steamcmd, modids, working_dir, mod_update, deleteSteamCMDCache):
-
-        # I not working directory provided, check if CWD has an ARK server.
-        self.working_dir = working_dir
-        if not working_dir:
-            self.working_dir_check()
-
+class ModDodo:
+    def __init__(self, steamcmd, modids, server_directory, mod_update, deleteSteamCMDCache):
         self.steamcmd = steamcmd  # Path to SteamCMD exe
+        self.server_directory = server_directory
+
+        self.check_server_directory(server_directory)
 
         if not self.steamcmd_check():
             print("SteamCMD Not Found And We Were Unable To Download It")
@@ -45,15 +43,13 @@ class ArkModDownloader():
                 else:
                     print("[+] There was as problem downloading mod {}.  See above errors".format(str(mod)))
 
-    def working_dir_check(self):
-        print("[!] No working directory provided.  Checking Current Directory")
-        print("[!] " + os.getcwd())
-        if os.path.isdir(os.path.join(os.getcwd(), "ShooterGame\Content")):
-            print("[+] Current Directory Has Ark Server.  Using The Current Directory")
-            self.working_dir = os.getcwd()
+    def check_server_directory(self):
+        if not os.path.isdir(os.path.join(self.server_directory, SERVER_CHECK_PATH)):
+            print_error("Given server directory " + self.server_directory + " does not contain '" + SERVER_CHECK_PATH + "'")
+            sys.exit(1)
         else:
-            print("[x] Current Directory Does Not Contain An ARK Server. Aborting")
-            sys.exit(0)
+            print("Installing mods for server: " + self.server_directory)
+
 
     def steamcmd_check(self):
         """
@@ -78,25 +74,25 @@ class ArkModDownloader():
             return True
 
         # Check working directory
-        if os.path.isfile(os.path.join(self.working_dir, "SteamCMD\steamcmd.exe")):
+        if os.path.isfile(os.path.join(self.server_directory, "SteamCMD\steamcmd.exe")):
             print("[+] Located SteamCMD")
-            self.steamcmd = os.path.join(self.working_dir, "SteamCMD\steamcmd.exe")
+            self.steamcmd = os.path.join(self.server_directory, "SteamCMD\steamcmd.exe")
             return True
 
         print("[+} SteamCMD Not Found In Common Locations. Attempting To Download")
 
         try:
             with urllib.request.urlopen("https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip") as response:
-                if not os.path.isdir(os.path.join(self.working_dir, "SteamCMD")):
-                    os.mkdir(os.path.join(self.working_dir, "SteamCMD"))
+                if not os.path.isdir(os.path.join(self.server_directory, "SteamCMD")):
+                    os.mkdir(os.path.join(self.server_directory, "SteamCMD"))
 
-                steam_cmd_zip = os.path.join(self.working_dir, "steamcmd.zip")
+                steam_cmd_zip = os.path.join(self.server_directory, "steamcmd.zip")
                 with open(steam_cmd_zip, "w+b") as output:
                     output.write(response.read())
 
                 zip_file = zipfile.ZipFile(steam_cmd_zip)
                 try:
-                    zip_file.extractall(os.path.join(self.working_dir, "SteamCMD"))
+                    zip_file.extractall(os.path.join(self.server_directory, "SteamCMD"))
                 except zipfile.BadZipfile as e:
                     print("[x] Failed To Extract steamcmd.zip. Aborting")
                     print("[x] Error: " + e)
@@ -107,7 +103,7 @@ class ArkModDownloader():
             print("[x] ERROR: " + e)
             return False
 
-        self.steamcmd = os.path.join(self.working_dir, r"SteamCMD\steamcmd.exe")
+        self.steamcmd = os.path.join(self.server_directory, r"SteamCMD\steamcmd.exe")
 
         return True
 
@@ -152,9 +148,9 @@ class ArkModDownloader():
         Build a list of all installed mods by grabbing all directory names from the mod folder
         :return:
         """
-        if not os.path.isdir(os.path.join(self.working_dir, "ShooterGame\Content\Mods")):
+        if not os.path.isdir(os.path.join(self.server_directory, "ShooterGame\Content\Mods")):
             return
-        for curdir, dirs, files in os.walk(os.path.join(self.working_dir, "ShooterGame\Content\Mods")):
+        for curdir, dirs, files in os.walk(os.path.join(self.server_directory, "ShooterGame\Content\Mods")):
             for d in dirs:
                 self.installed_mods.append(d)
             break
@@ -216,7 +212,7 @@ class ArkModDownloader():
         :return:
         """
 
-        ark_mod_folder = os.path.join(self.working_dir, "ShooterGame\Content\Mods")
+        ark_mod_folder = os.path.join(self.server_directory, "ShooterGame\Content\Mods")
         output_dir = os.path.join(ark_mod_folder, str(modid))
         source_dir = os.path.join(self.temp_mod_path, modid, "WindowsNoEditor")
 
@@ -381,24 +377,24 @@ def print_error(msg):
 
 def main():
     parser = argparse.ArgumentParser(description="Installs ARK Linux server mods via SteamCMD")
-    parser.add_argument("--serverdir", default=None, dest="serverdir", help="home directory of the server (containing the `/ShooterGame` folder)")
+    parser.add_argument("--serverdir", default=".", dest="serverdir", help="home directory of the server (containing the `/ShooterGame` folder)")
     parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
     parser.add_argument("--steamcmd", default="/home/steam/Steam", dest="steamcmd", help="path to SteamCMD")
-    parser.add_argument("--update", default=None, action="store_true", dest="mod_update", help="update existing mods")
-    parser.add_argument("--deletecache", default=None, action="store_true", dest="deletecache", help="Delete SteamCMD cache, if used in multi-server environment")
+    parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="updatemods", help="update existing mods")
+    parser.add_argument("--deletecache", "-d", default=False, action="store_true", dest="deletecache", help="Delete SteamCMD cache, if used in multi-server environment")
 
     args = parser.parse_args()
 
-    if not args.modids and not args.mod_update:
+    if not args.modids and not args.updatemods:
         print_error("Neither mod ids provided nor update requested. Don't know what to dodo.")
         print(parser.format_help())
         sys.exit(1)
 
-    ArkModDownloader(args.steamcmd,
-                     args.modids,
-                     args.serverdir,
-                     args.mod_update,
-                     args.deletecache)
+    ModDodo(args.steamcmd,
+            args.modids,
+            args.serverdir,
+            args.updatemods,
+            args.deletecache)
 
 
 if __name__ == '__main__':
