@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import arkit
 import sys
 import os
@@ -9,11 +11,11 @@ import struct
 
 SERVER_MOD_DIRECTORY = "ShooterGame/Content/Mods"
 
-STEAMCMD_STEAMAPPS = "steamapps"
-STEAMCMD_MODS_PATH = STEAMCMD_STEAMAPPS + "/workshop/content/346110"
+STEAMCMD_STEAMAPPS = "/usr/game/"
+STEAMCMD_MODS_PATH = "~/.local/share/Steam/steamapps/workshop/content/346110"
 
 SERVER_CHECK_PATH = "ShooterGame/Content"
-STEAMCMD_SCRIPT = "steamcmd.sh"
+STEAMCMD_SCRIPT = "steamcmd"
 
 WINDOWS_NOEDITOR = "WindowsNoEditor"
 WINDOWS_NOEDITOR_MODFILE = WINDOWS_NOEDITOR + "/.mod"
@@ -22,12 +24,13 @@ WINDOWS_NOEDITOR_MODMETA_INFO = WINDOWS_NOEDITOR + "/modmeta.info"
 
 
 class ModDodo:
-    def __init__(self, steamcmd_directory, modids, server_directory, mod_update, steamcmd_delete_cache):
+    def __init__(self, steamcmd_directory, modids, server_directory, local_mod_directory, mod_update, steamcmd_delete_cache, no_download):
         self.steamcmd_directory = steamcmd_directory
         self.server_directory = server_directory
 
         self.check_server_directory()
-        self.check_steamcmd_directory()
+        if not no_download:
+            self.check_steamcmd_directory()
 
         if not modids:
             modids = []
@@ -40,14 +43,21 @@ class ModDodo:
         self.map_names = []  # stores map names from mod.info
         self.meta_data = OrderedDict([])  # stores key value from modmeta.info
 
-        self.download_mod_directory = os.path.join(self.steamcmd_directory, STEAMCMD_MODS_PATH)
+        if local_mod_directory is '.':
+          self.download_mod_directory = os.path.expanduser(STEAMCMD_MODS_PATH)
+        else:
+          self.download_mod_directory = os.path.normpath(local_mod_directory)
 
-        if steamcmd_delete_cache:
-            self.delete_steamcmd_cache()
+        print("Mod directory: " + self.download_mod_directory)
 
-        if not self.download_mods(modids):
-            print_error("Could not download mods")
-            sys.exit(1)
+        if not no_download:
+            if steamcmd_delete_cache:
+                self.delete_steamcmd_cache()
+
+        if not no_download:
+            if not self.download_mods(modids):
+                print_error("Could not download mods")
+                sys.exit(1)
 
         # SteamCMD does not properly break lines
         print("")
@@ -107,7 +117,7 @@ class ModDodo:
         for current_dir, directories, files in os.walk(os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)):
             for directory in directories:
                 # AFAIK these are updated by Ark itself, maybe only with -automanagedmods
-                if directory not in ["111111111", "Ragnarok", "TheCenter"]:
+                if directory.isdigit() and directory not in ["111111111", "834585900", "916417001"]:
                     modids.append(directory)
             break
 
@@ -128,6 +138,10 @@ class ModDodo:
         :returns false, if any file fails to download
         """
         print("- Extracting mod " + str(modid) + "...")
+
+        if not os.path.exists(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)):
+            print_error("Mod directory does not exist in local mod repository")
+            return False
 
         try:
             for curdir, subdirs, files in os.walk(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)):
@@ -319,10 +333,12 @@ def print_error(msg):
 def main():
     parser = argparse.ArgumentParser(description="Installs ARK Linux server mods via SteamCMD")
     parser.add_argument("--serverdir", default=".", dest="serverdir", help="home directory of the server (containing the /ShooterGame folder)")
+    parser.add_argument("--localmoddir", default=".", dest="localmoddir", help="local directory where steam downloads mods (usually ~/.local/share/Steam/steamapps/workshop/content/346110")
     parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
-    parser.add_argument("--steamcmd", default="/home/steam/Steam", dest="steamcmd", help="path to SteamCMD")
+    parser.add_argument("--steamcmd", default="/usr/games", dest="steamcmd", help="path to SteamCMD, default: /usr/games")
     parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="updatemods", help="update existing mods")
     parser.add_argument("--deletecache", "-d", default=False, action="store_true", dest="deletecache", help="Delete SteamCMD cache, if used in multi-server environment")
+    parser.add_argument("--nodownload", "-nd", default=False, action="store_true", dest="nodownload", help="Skip download via steamcmd")
 
     args = parser.parse_args()
 
@@ -334,8 +350,10 @@ def main():
     ModDodo(args.steamcmd,
             args.modids,
             args.serverdir,
+            args.localmoddir,
             args.updatemods,
-            args.deletecache)
+            args.deletecache,
+            args.nodownload)
 
 
 if __name__ == '__main__':
