@@ -12,10 +12,13 @@ This tool is intended be run with python3.
 ### Commandline Arguments
 
 - `--serverdir PATH` - (optional) - home directory of the server (containing the `/ShooterGame` folder)
+- `--localmoddir PATH` - (optional) - local directory for steam to download mods (usually ends with `/Steam/steamapps/workshop/content/346110`)
 - `--modids ID [ID...]` - space-separated list of steam IDs of the mod you wish to 
 - `--steamcmd PATH` - (optional) directory of the SteamCMD install you wish to use, if not under `~/steam/Steam`
 - `--updatemods` - (optional) - update all mods currently installed on the server
 - `--deletecache` - (optional) - deletes previously downloaded mods in SteamCMD for multi-server environments
+- `--nodownload` - (optional) - prevents the execution of steamcmd to download/update the mods in the local directory, also ignores steamcmd parameter
+
 
 ### Example
 
