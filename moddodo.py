@@ -116,7 +116,7 @@ class ModDodo:
             return
         for current_dir, directories, files in os.walk(os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)):
             for directory in directories:
-                # AFAIK these are updated by Ark itself, maybe only with -automanagedmods
+                # AFAIK these are updated by Ark itself, maybe only with -automanagedmods, 834585900 and 916417001 are maps
                 if directory.isdigit() and directory not in ["111111111", "834585900", "916417001"]:
                     modids.append(directory)
             break
@@ -217,6 +217,9 @@ class ModDodo:
         ark_mod_directory = os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)
         target_mod_directory = os.path.join(ark_mod_directory, str(modid))
         source_mod_directory = os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)
+        target_mod_file = os.path.join(ark_mod_directory, str(modid), ".mod")
+        target_mod_file_info = os.path.join(ark_mod_directory, str(modid), "mod.info")
+        target_mod_file_inst = os.path.join(ark_mod_directory, str(modid)+".mod")
 
         try:
             if not os.path.isdir(ark_mod_directory):
@@ -226,6 +229,20 @@ class ModDodo:
                 shutil.rmtree(target_mod_directory)
 
             shutil.copytree(source_mod_directory, target_mod_directory)
+
+            """
+            Move binary .mod file from MOD directory to the level above
+            """
+
+            shutil.move(target_mod_file, target_mod_file_inst)
+
+            shutil.copystat(target_mod_file_info, target_mod_file_inst)
+            os.chmod(target_mod_file_inst, 0o664)
+            target_mod_file = os.path.join(ark_mod_directory, str(modid), "modmeta.info")
+            os.chmod(target_mod_file, 0o664)
+            target_mod_file = os.path.join(ark_mod_directory, str(modid), "mod.info")
+            os.chmod(target_mod_file, 0o664)
+
             return True
         except Exception as e:
             print_error("Encountered unexpected exception during move operation from " + source_mod_directory + " to " + target_mod_directory + ":\n"
