@@ -237,11 +237,11 @@ class ModDodo:
             shutil.move(target_mod_file, target_mod_file_inst)
 
             shutil.copystat(target_mod_file_info, target_mod_file_inst)
-            os.chmod(target_mod_file_inst, 0o664)
+            os.chmod(target_mod_file_inst, 0o600)
             target_mod_file = os.path.join(ark_mod_directory, str(modid), "modmeta.info")
-            os.chmod(target_mod_file, 0o664)
+            os.chmod(target_mod_file, 0o660)
             target_mod_file = os.path.join(ark_mod_directory, str(modid), "mod.info")
-            os.chmod(target_mod_file, 0o664)
+            os.chmod(target_mod_file, 0o660)
 
             return True
         except Exception as e:
