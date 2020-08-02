@@ -6,6 +6,7 @@ import os
 import argparse
 import shutil
 import subprocess
+import tempfile
 from collections import OrderedDict
 import struct
 
@@ -18,13 +19,13 @@ SERVER_CHECK_PATH = "ShooterGame/Content"
 STEAMCMD_SCRIPT = "steamcmd"
 
 WINDOWS_NOEDITOR = "WindowsNoEditor"
-WINDOWS_NOEDITOR_MODFILE = WINDOWS_NOEDITOR + "/.mod"
+WINDOWS_NOEDITOR_MODFILE = WINDOWS_NOEDITOR + ".mod"
 WINDOWS_NOEDITOR_MOD_INFO = WINDOWS_NOEDITOR + "/mod.info"
 WINDOWS_NOEDITOR_MODMETA_INFO = WINDOWS_NOEDITOR + "/modmeta.info"
 
 
 class ModDodo:
-    def __init__(self, steamcmd_directory, modids, server_directory, local_mod_directory, mod_update, steamcmd_delete_cache, no_download):
+    def __init__(self, steamcmd_directory, modids, server_directory, local_mod_directory, mod_update, steamcmd_delete_cache, no_download, force_update):
         self.steamcmd_directory = steamcmd_directory
         self.server_directory = server_directory
 
@@ -63,6 +64,11 @@ class ModDodo:
         print("")
 
         for modid in modids:
+            self.workdir = tempfile.mkdtemp()
+            steammodftime=os.path.getmtime(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR, "mod.info"))
+            arkmodftime=os.path.getmtime(os.path.join(self.server_directory, SERVER_MOD_DIRECTORY, modid, "mod.info"))
+            if mod_upddate and steammodftime <= arkmodftime and not force_update:
+               continue
             if self.extract_mod(modid):
                 if self.create_mod_file(modid):
                     if self.move_mod(modid):
@@ -73,6 +79,7 @@ class ModDodo:
                     print_error("Could not create .mod file for mod " + str(modid))
             else:
                 print_error("Could not extract mod " + str(modid))
+            shutil.rmtree(self.workdir)
 
     def check_server_directory(self):
         if not os.path.isdir(os.path.join(self.server_directory, SERVER_CHECK_PATH)):
@@ -144,17 +151,32 @@ class ModDodo:
             return False
 
         try:
-            for curdir, subdirs, files in os.walk(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)):
+            srcdir = os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)
+            destdir = os.path.join(self.workdir, modid)
+            for curdir, subdirs, files in os.walk(srcdir):
+                os.makedirs(os.path.join(destdir, os.path.relpath(curdir, srcdir)), 0o770, True)
                 for file in files:
                     name, ext = os.path.splitext(file)
                     if ext == ".z":
                         src = os.path.join(curdir, file)
-                        dst = os.path.join(curdir, name)
-                        uncompressed = os.path.join(curdir, file + ".uncompressed_size")
+                        dst = os.path.join(destdir, os.path.relpath(curdir, srcdir), name)
                         arkit.unpack(src, dst)
-                        os.remove(src)
-                        if os.path.isfile(uncompressed):
-                            os.remove(uncompressed)
+                        shutil.copystat(src,dst)
+                        uncompressed = os.path.join(curdir, file + ".uncompressed_size")
+                        with open(uncompressed, "r") as fd:
+                             unpacked_size = int(fd.read())
+                             if os.stat(dst).st_size != unpacked_size:
+                                print_error ("Wrong file size "+dst)
+                                return False
+                    if ext == ".info":
+                        src = os.path.join(curdir, file)
+                        dst = os.path.join(destdir, os.path.relpath(curdir, srcdir), file)
+                        shutil.copy2(src, dst)
+                        shutil.copystat(src,dst)
+            for curdir, subdir, files in os.walk(srcdir):
+                dstdirattr = os.path.join(destdir, os.path.relpath(curdir, srcdir))
+                shutil.copystat(curdir,dstdirattr)
+            shutil.copystat(curdir,destdir)
 
             return True
 
@@ -171,7 +193,7 @@ class ModDodo:
         if not self.parse_base_info(modid) or not self.parse_meta_data(modid):
             return False
 
-        with open(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR_MODFILE), "w+b") as f:
+        with open(os.path.join(self.workdir, modid+".mod"), "w+b") as f:
 
             modid = int(modid)
             f.write(struct.pack('ixxxx', modid))  # Needs 4 pad bits
@@ -216,10 +238,7 @@ class ModDodo:
 
         ark_mod_directory = os.path.join(self.server_directory, SERVER_MOD_DIRECTORY)
         target_mod_directory = os.path.join(ark_mod_directory, str(modid))
-        source_mod_directory = os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR)
-        target_mod_file = os.path.join(ark_mod_directory, str(modid), ".mod")
-        target_mod_file_info = os.path.join(ark_mod_directory, str(modid), "mod.info")
-        target_mod_file_inst = os.path.join(ark_mod_directory, str(modid)+".mod")
+        source_mod_directory = os.path.join(self.workdir)
 
         try:
             if not os.path.isdir(ark_mod_directory):
@@ -228,24 +247,17 @@ class ModDodo:
             if os.path.isdir(target_mod_directory):
                 shutil.rmtree(target_mod_directory)
 
-            shutil.copytree(source_mod_directory, target_mod_directory)
+            shutil.move(os.path.join(source_mod_directory, str(modid)), target_mod_directory)
 
-            """
-            Move binary .mod file from MOD directory to the level above
-            """
-
-            shutil.move(target_mod_file, target_mod_file_inst)
-
-            shutil.copystat(target_mod_file_info, target_mod_file_inst)
-            os.chmod(target_mod_file_inst, 0o600)
-            target_mod_file = os.path.join(ark_mod_directory, str(modid), "modmeta.info")
-            os.chmod(target_mod_file, 0o660)
-            target_mod_file = os.path.join(ark_mod_directory, str(modid), "mod.info")
-            os.chmod(target_mod_file, 0o660)
+            shutil.move(os.path.join(source_mod_directory, str(modid)+".mod"), os.path.join(ark_mod_directory, str(modid)+".mod"))
+            os.chmod(os.path.join(ark_mod_directory, str(modid)+".mod"), 0o600)
+            os.chmod(os.path.join(target_mod_directory, "modmeta.info"), 0o660)
+            os.chmod(os.path.join(target_mod_directory, "mod.info"), 0o660)
+            shutil.copystat(os.path.join(target_mod_directory, "mod.info"), os.path.join(ark_mod_directory, str(modid)+".mod"))
 
             return True
         except Exception as e:
-            print_error("Encountered unexpected exception during move operation from " + source_mod_directory + " to " + target_mod_directory + ":\n"
+            print_error("Encountered unexpected exception during move operation from " + source_mod_directory + " to " + ark_mod_directory + ":\n"
                         + str(e))
             return False
 
@@ -353,7 +365,8 @@ def main():
     parser.add_argument("--localmoddir", default=".", dest="localmoddir", help="local directory where steam downloads mods (usually ~/.local/share/Steam/steamapps/workshop/content/346110")
     parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
     parser.add_argument("--steamcmd", default="/usr/games", dest="steamcmd", help="path to SteamCMD, default: /usr/games")
-    parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="updatemods", help="update existing mods")
+    parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="forceupdate", help="update existing mods")
+    parser.add_argument("--force", "-f", default=False, action="store_true", dest="updatemods", help="update existing mods")
     parser.add_argument("--deletecache", "-d", default=False, action="store_true", dest="deletecache", help="Delete SteamCMD cache, if used in multi-server environment")
     parser.add_argument("--nodownload", "-nd", default=False, action="store_true", dest="nodownload", help="Skip download via steamcmd")
 
@@ -370,7 +383,8 @@ def main():
             args.localmoddir,
             args.updatemods,
             args.deletecache,
-            args.nodownload)
+            args.nodownload,
+            args.forceupdate)
 
 
 if __name__ == '__main__':
