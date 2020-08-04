@@ -365,8 +365,8 @@ def main():
     parser.add_argument("--localmoddir", default=".", dest="localmoddir", help="local directory where steam downloads mods (usually ~/.local/share/Steam/steamapps/workshop/content/346110")
     parser.add_argument("--modids", nargs="+", default=None, dest="modids", help="space-separated list of IDs of mods to install")
     parser.add_argument("--steamcmd", default="/usr/games", dest="steamcmd", help="path to SteamCMD, default: /usr/games")
-    parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="forceupdate", help="update existing mods")
-    parser.add_argument("--force", "-f", default=False, action="store_true", dest="updatemods", help="update existing mods")
+    parser.add_argument("--updatemods", "-u", default=False, action="store_true", dest="updatemods", help="update existing mods")
+    parser.add_argument("--force", "-f", default=False, action="store_true", dest="forceupdate", help="force update of mods on -u (also when not newer)")
     parser.add_argument("--deletecache", "-d", default=False, action="store_true", dest="deletecache", help="Delete SteamCMD cache, if used in multi-server environment")
     parser.add_argument("--nodownload", "-nd", default=False, action="store_true", dest="nodownload", help="Skip download via steamcmd")
 
