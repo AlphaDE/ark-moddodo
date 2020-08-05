@@ -66,7 +66,7 @@ class ModDodo:
         for modid in modids:
             steammodftime=os.path.getmtime(os.path.join(self.download_mod_directory, modid, WINDOWS_NOEDITOR, "mod.info"))
             arkmodftime=os.path.getmtime(os.path.join(self.server_directory, SERVER_MOD_DIRECTORY, modid, "mod.info"))
-            if mod_upddate and steammodftime <= arkmodftime and not force_update:
+            if mod_update and steammodftime <= arkmodftime and not force_update:
                 continue
             self.workdir = tempfile.mkdtemp()
             if self.extract_mod(modid):
