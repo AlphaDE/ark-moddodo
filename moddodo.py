@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from collections import OrderedDict
 import struct
+import ctypes
 
 SERVER_MOD_DIRECTORY = "ShooterGame/Content/Mods"
 
@@ -202,7 +203,7 @@ class ModDodo:
         with open(os.path.join(self.workdir, modid+".mod"), "w+b") as f:
 
             modid = int(modid)
-            f.write(struct.pack('ixxxx', modid))  # Needs 4 pad bits
+            f.write(struct.pack('Ixxxx', modid))  # Needs 4 pad bits
             self.write_ue4_string("ModName", f)
             self.write_ue4_string("", f)
 
