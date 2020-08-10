@@ -9,7 +9,6 @@ import subprocess
 import tempfile
 from collections import OrderedDict
 import struct
-import ctypes
 
 SERVER_MOD_DIRECTORY = "ShooterGame/Content/Mods"
 
