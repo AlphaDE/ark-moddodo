@@ -110,15 +110,18 @@ def unpack(src, dst):
 
                     #Verify the size of the data is consistent with the archives index
                     if len(uncompressed_data) == uncompressed:
+                      #Write the extracted data to disk
                       f_out.write(uncompressed_data)
                       read_data += 1
 
                       #Verify there is only one partial chunk
                       if len(uncompressed_data) != size_unpacked_chunk and read_data != len(compression_index):
+                            f_out.close()
                             msg = "Index contains more than one partial chunk: was {} when the full chunk size is {}, chunk {}/{}".format(len(uncompressed_data), size_unpacked_chunk, read_data, len(compression_index))
                             logging.critical(msg)
                             raise CorruptUnpackException(msg)
                     else:
+                        f_out.close()
                         msg = "Uncompressed chunk size is not the same as in the index: was {} but should be {}.".format(len(uncompressed_data), uncompressed)
                         logging.critical(msg)
                         raise CorruptUnpackException(msg)
@@ -133,6 +136,4 @@ def unpack(src, dst):
             logging.critical(msg)
             raise SignatureUnpackException(msg)
 
-    #Write the extracted data to disk
-    
     logging.info("Archive has been extracted.")
