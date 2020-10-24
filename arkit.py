@@ -103,17 +103,18 @@ def unpack(src, dst):
                 #Read the actual archive data
                 data = b''
                 read_data = 0
+                f_out = open(dst, 'wb')
                 for compressed, uncompressed in compression_index:
                     compressed_data = f.read(compressed)
                     uncompressed_data = zlib.decompress(compressed_data)
 
                     #Verify the size of the data is consistent with the archives index
                     if len(uncompressed_data) == uncompressed:
-                        data += uncompressed_data
-                        read_data += 1
+                      f_out.write(uncompressed_data)
+                      read_data += 1
 
-                        #Verify there is only one partial chunk
-                        if len(uncompressed_data) != size_unpacked_chunk and read_data != len(compression_index):
+                      #Verify there is only one partial chunk
+                      if len(uncompressed_data) != size_unpacked_chunk and read_data != len(compression_index):
                             msg = "Index contains more than one partial chunk: was {} when the full chunk size is {}, chunk {}/{}".format(len(uncompressed_data), size_unpacked_chunk, read_data, len(compression_index))
                             logging.critical(msg)
                             raise CorruptUnpackException(msg)
@@ -121,6 +122,8 @@ def unpack(src, dst):
                         msg = "Uncompressed chunk size is not the same as in the index: was {} but should be {}.".format(len(uncompressed_data), uncompressed)
                         logging.critical(msg)
                         raise CorruptUnpackException(msg)
+            
+                f_out.close()
             else:
                 msg = "Data types in the headers should be int's. Size Types: unpacked_chunk({}), packed({}), unpacked({})".format(sigver, type(size_unpacked_chunk), type(size_packed), type(size_unpacked))
                 logging.critical(msg)
@@ -131,6 +134,5 @@ def unpack(src, dst):
             raise SignatureUnpackException(msg)
 
     #Write the extracted data to disk
-    with open(dst, 'wb') as f:
-        f.write(data)
+    
     logging.info("Archive has been extracted.")
